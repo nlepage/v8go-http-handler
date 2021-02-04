@@ -17,6 +17,9 @@ var (
 
 	//go:embed fetch-event.js
 	fetchEventJs string
+
+	//go:embed call-handler.js
+	callHandlerJs string
 )
 
 type bodyReader http.Request
@@ -40,7 +43,7 @@ func (r *bodyReader) callback(info *v8go.FunctionCallbackInfo) *v8go.Value {
 	return v
 }
 
-func Handler(js string) http.Handler {
+func Handler(handler string) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		vm, err := v8go.NewIsolate()
 		if err != nil {
@@ -80,7 +83,7 @@ func Handler(js string) http.Handler {
 			panic(err)
 		}
 
-		global, err := v8go.NewObjectTemplate(vm)
+		infoTmpl, err := v8go.NewObjectTemplate(vm)
 		if err != nil {
 			panic(err)
 		}
@@ -91,16 +94,26 @@ func Handler(js string) http.Handler {
 			"bodyReader": bodyReader,
 			"callback":   callback,
 		} {
-			if err := global.Set(k, v); err != nil {
+			if err := infoTmpl.Set(k, v); err != nil {
 				panic(err)
 			}
 		}
 
-		ctx, err := v8go.NewContext(vm, global)
+		ctx, err := v8go.NewContext(vm)
 		if err != nil {
 			panic(err)
 		}
 		defer ctx.Close()
+
+		if _, err := ctx.RunScript(responseJs, "response.js"); err != nil {
+			panic(err)
+		}
+
+		if _, err := ctx.RunScript(handler, "handler.js"); err != nil {
+			panic(err)
+		}
+
+		// FIXME check handler
 
 		if _, err := ctx.RunScript(requestJs, "request.js"); err != nil {
 			panic(err)
@@ -110,21 +123,20 @@ func Handler(js string) http.Handler {
 			panic(err)
 		}
 
-		if _, err := ctx.RunScript(responseJs, "response.js"); err != nil {
+		info, err := infoTmpl.NewInstance(ctx)
+		if err != nil {
+			panic(err)
+		}
+		if err := ctx.Global().Set("info", info); err != nil {
 			panic(err)
 		}
 
-		if _, err := ctx.RunScript(`
-			const e = new FetchEvent(new Request(url, { method, headers, bodyReader }), callback)
-
-			async function handle(e) {
-				const { name } = await e.request.json()
-				e.respondWith(new Response('Hello ' + name + '!'))
-			}
-
-			handle(e)
-		`, "test.js"); err != nil {
+		if _, err := ctx.RunScript(callHandlerJs, "call-handler.js"); err != nil {
 			panic(err)
 		}
 	})
+}
+
+func Handle(pattern, handler string) {
+	http.Handle(pattern, Handler(handler))
 }

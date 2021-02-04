@@ -8,8 +8,13 @@ import (
 	"testing"
 )
 
-func TestHandler(t *testing.T) {
-	http.Handle("/test", Handler(""))
+func TestHandle(t *testing.T) {
+	Handle("/test", `
+		async function handler(e) {
+			const { name } = await e.request.json()
+			e.respondWith(new Response('Hello ' + name + '!'))
+		}
+	`)
 
 	req := httptest.NewRequest("POST", "https://example.com/test", strings.NewReader(`{
 		"name": "Dog 🐶"
