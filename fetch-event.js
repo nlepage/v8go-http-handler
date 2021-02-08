@@ -1,12 +1,14 @@
 class FetchEvent {
-  constructor(request, callback) {
+  constructor(request, writeRes) {
     this.request = request
-    this.callback = callback
+    this.__writeRes = writeRes
   }
 
-  async respondWith(responsePromise) {
-    const response = await responsePromise
-    // FIXME headers
-    this.callback(response.body, response.status, response.statusText)
+  respondWith(responsePromise) {
+    Promise.resolve(responsePromise).then(response => {
+      // FIXME headers
+      this.__writeRes(response.body, response.status)
+    })
+    // FIXME catch
   }
 }

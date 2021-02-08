@@ -1,4 +1,4 @@
-package v8gohttp
+package v8gohttp_test
 
 import (
 	"io"
@@ -6,26 +6,27 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	v8gohttp "github.com/nlepage/v8go-http-handler"
 )
 
 func TestHandle(t *testing.T) {
-	Handle("/test", `
+	v8gohttp.Handle("/test", `
 		async function handler(e) {
 			const { name } = await e.request.json()
 			e.respondWith(new Response('Hello ' + name + '!'))
 		}
 	`)
 
-	req := httptest.NewRequest("POST", "https://example.com/test", strings.NewReader(`{
+	srv := httptest.NewServer(http.DefaultServeMux)
+	defer srv.Close()
+
+	res, err := srv.Client().Post(srv.URL+"/test", "application/json", strings.NewReader(`{
 		"name": "Dog 🐶"
 	}`))
-	req.Header.Set("Content-Type", "application/json")
-
-	rec := httptest.NewRecorder()
-
-	http.DefaultServeMux.ServeHTTP(rec, req)
-
-	res := rec.Result()
+	if err != nil {
+		panic(err)
+	}
 
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("res.StatusCode != 200, got %d", res.StatusCode)

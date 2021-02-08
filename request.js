@@ -1,22 +1,22 @@
 class Request {
-  constructor(url, { method = 'GET', headers = {}, bodyReader }) {
+  constructor(url, { method = 'GET', headers = {}, readBody }) {
     this.url = url
     this.method = method
     // FIXME should be a Headers instance
     this.headers = headers
-    this.__bodyReader = bodyReader
+    this.__readBody = readBody
   }
 
   async text() {
-    return this.__bodyReader()
+    return this.__readBody()
   }
 
   async json() {
-    return JSON.parse(this.__bodyReader())
+    return JSON.parse(this.__readBody())
   }
 
   async arrayBuffer() {
-    return Uint8Array.from(this.__bodyReader(), c => c.charCodeAt(0)).buffer
+    return Uint8Array.from(this.__readBody(), c => c.charCodeAt(0)).buffer
   }
 
   formData() {
