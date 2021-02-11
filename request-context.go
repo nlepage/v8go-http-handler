@@ -1,6 +1,7 @@
 package v8gohttp
 
 import (
+	"context"
 	"io"
 	"net/http"
 
@@ -8,13 +9,16 @@ import (
 )
 
 type requestContext struct {
-	vm  *v8go.Isolate
-	res http.ResponseWriter
-	req *http.Request
+	context.Context
+	cancel context.CancelFunc
+	vm     *v8go.Isolate
+	res    http.ResponseWriter
+	req    *http.Request
 }
 
 func newRequestContext(vm *v8go.Isolate, res http.ResponseWriter, req *http.Request) *requestContext {
-	return &requestContext{vm, res, req}
+	ctx, cancel := context.WithCancel(req.Context())
+	return &requestContext{ctx, cancel, vm, res, req}
 }
 
 func (reqCtx *requestContext) instance(ctx *v8go.Context) (*v8go.Object, error) {
@@ -88,6 +92,12 @@ func (reqCtx *requestContext) readBody(info *v8go.FunctionCallbackInfo) *v8go.Va
 }
 
 func (reqCtx *requestContext) writeRes(info *v8go.FunctionCallbackInfo) *v8go.Value {
+	if reqCtx.Err() != nil {
+		return nil
+	}
+
+	defer reqCtx.cancel()
+
 	// FIXME headers
 	body, status := info.Args()[0].String(), info.Args()[1].Int32()
 

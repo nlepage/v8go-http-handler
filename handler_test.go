@@ -14,7 +14,7 @@ func TestHandle(t *testing.T) {
 	v8gohttp.Handle("/test", `
 		async function handler(e) {
 			const { name } = await e.request.json()
-			e.respondWith(new Response('Hello ' + name + '!'))
+			e.respondWith(new Response(JSON.stringify({ message: 'Hello ' + name + '!' })))
 		}
 	`)
 
@@ -29,15 +29,15 @@ func TestHandle(t *testing.T) {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		t.Fatalf("res.StatusCode != 200, got %d", res.StatusCode)
+		t.Errorf("res.StatusCode != 200, got %d", res.StatusCode)
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		t.Fatal("Error while reading res.Body", err)
 	}
 
-	if string(body) != "Hello Dog 🐶!" {
-		t.Fatalf("res.Body != \"Hello Dog 🐶!\", got %#v", string(body))
+	if string(body) != `{"message":"Hello Dog 🐶!"}` {
+		t.Errorf(`res.Body != %#v, got %#v`, `{"message":"Hello Dog 🐶!"}`, string(body))
 	}
 }
